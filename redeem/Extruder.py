@@ -19,19 +19,20 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
 
-from threading import Thread
-import time
 import logging
 import numpy as np
-from Alarm import Alarm
+import time
+from threading import Thread, Event
+from .Alarm import Alarm
 
 
 class Heater(object):
   """
-    A heater element that must keep temperature,
-    either an extruder, a HBP or could even be a heated chamber
-    """
+  A heater element that must keep temperature,
+  either an extruder, a HBP or could even be a heated chamber
+  """
 
   def __init__(self, thermistor, mosfet, name, onoff_control):
     """ Init """
@@ -123,7 +124,7 @@ class Heater(object):
   def disable(self):
     """ Stops the heater and the PID controller """
     self.target_temp = 0
-    self.enabled = False
+    self.stop_thread.set()
     self.mosfet.set_power(0.0)
     # Wait for PID to stop
     self.t.join()
@@ -143,14 +144,14 @@ class Heater(object):
     self.prev_time = self.current_time = time.time()
     self.current_temp = self.thermistor.get_temperature()
     self.temperatures = [self.current_temp]
-    self.enabled = True
+    self.stop_thread = Event()
     self.t = Thread(target=self.keep_temperature, name=self.name)
     self.t.start()
 
   def keep_temperature(self):
     """ PID Thread that keeps the temperature stable """
     try:
-      while self.enabled:
+      while not self.stop_thread.is_set():
         self.current_temp = self.thermistor.get_temperature()
         self.temperatures.append(self.current_temp)
         self.temperatures[:-max(int(60 / self.sleep), self.avg)] = [
@@ -187,7 +188,7 @@ class Heater(object):
           self.mosfet.set_power(power)
         else:
           self.mosfet.set_power(0)
-        time.sleep(self.sleep)
+        self.stop_thread.wait(self.sleep)
     finally:
       # Disable this mosfet if anything goes wrong
       self.mosfet.set_power(0)
@@ -208,13 +209,13 @@ class Heater(object):
     """ Calculate and return the error integral """
     self.error_integral += self.error * self.sleep
     # Avoid windup by clippping the integral part
-    # to teh reciprocal of the integral term
+    # to the reciprocal of the integral term
     self.error_integral = np.clip(self.error_integral, 0, self.max_power * self.Ti / self.Kp)
     return self.error_integral
 
   def check_temperature_error(self):
     """ Check the temperatures, make sure they are sane. 
-        Sound the alarm if something is wrong """
+    Sound the alarm if something is wrong """
     if len(self.temperatures) < 2:
       return
     temp_delta = self.temperatures[-1] - self.temperatures[-2]
@@ -228,16 +229,18 @@ class Heater(object):
                 "Temperature falling too quickly ({} degrees) for {}".format(temp_delta, self.name))
     # Check that temperature has not fallen below a certain setpoint from target
     if self.min_temp_enabled and self.current_temp < (self.target_temp - self.min_temp):
-      a = Alarm(Alarm.HEATER_TOO_COLD, "Temperature below min set point ({} degrees) for {}".format(
-          self.min_temp, self.name), "Alarm: Heater {}".format(self.name))
+      a = Alarm(
+          Alarm.HEATER_TOO_COLD, "Temperature below min set point ({} degrees) for {}".format(
+              self.min_temp, self.name), "Alarm: Heater {}".format(self.name))
     # Check if the temperature has gone beyond the max value
     if self.current_temp > self.max_temp:
       a = Alarm(Alarm.HEATER_TOO_HOT, "Temperature beyond max ({} degrees) for {}".format(
           self.max_temp, self.name))
     # Check the time diff, only warn if something is off.
     if self.time_diff > 4:
-      logging.warning("Heater time update large: " + self.name + " temp: " + str(self.current_temp)
-                      + " time delta: " + str(self.current_time - self.prev_time))
+      logging.warning("Heater time update large: " + self.name + " temp: " +
+                      str(self.current_temp) + " time delta: " +
+                      str(self.current_time - self.prev_time))
 
 
 class Extruder(Heater):

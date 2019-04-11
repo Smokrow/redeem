@@ -39,8 +39,8 @@ def get_config():
   cfg = VersioneerConfig()
   cfg.VCS = "git"
   cfg.style = "pep440-branch-based"
-  cfg.tag_prefix = ""
-  cfg.parentdir_prefix = "Redeem-"
+  cfg.tag_prefix = "base_"
+  cfg.parentdir_prefix = ""
   cfg.versionfile_source = "redeem/_version.py"
   cfg.verbose = False
   return cfg
@@ -129,8 +129,8 @@ def versions_from_parentdir(parentdir_prefix, root, verbose):
       root = os.path.dirname(root)    # up a level
 
   if verbose:
-    print("Tried directories %s but none started with prefix %s" % (str(rootdirs),
-                                                                    parentdir_prefix))
+    print(
+        "Tried directories %s but none started with prefix %s" % (str(rootdirs), parentdir_prefix))
   raise NotThisMethod("rootdir doesn't start with parentdir_prefix")
 
 

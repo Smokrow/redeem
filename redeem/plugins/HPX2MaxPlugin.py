@@ -13,7 +13,6 @@ point of view.
 
 Author: Mathieu Monney
 email: zittix(at)xwaves(dot)net
-Website: http://www.xwaves.net
 License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
 
  Redeem is free software: you can redistribute it and/or modify
@@ -30,18 +29,12 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from AbstractPlugin import AbstractPlugin
 import logging
-try:
-  from gcodes.GCodeCommand import GCodeCommand
-  from Stepper import Stepper
-  from Servo import Servo
-  from Path import Path
-except ImportError:
-  from redeem.gcodes.GCodeCommand import GCodeCommand
-  from redeem.Stepper import Stepper
-  from redeem.Servo import Servo
-  from redeem.Path import Path
+from redeem.gcodes.GCodeCommand import GCodeCommand
+from redeem.Path import Path
+from redeem.Servo import Servo
+from redeem.Stepper import Stepper
+from .AbstractPlugin import AbstractPlugin
 
 __PLUGIN_NAME__ = 'HPX2Max'
 

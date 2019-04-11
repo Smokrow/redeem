@@ -24,17 +24,16 @@ pathplanner = Extension(
         'prussdrv.c',
         'Logger.cpp'
     ],
-    swig_opts=['-c++', '-builtin'],
+    swig_opts=['-c++', '-builtin', '-threads'],
     include_dirs=[np.get_include()],
     extra_compile_args=[
         '-std=c++0x',
         '-g',
         '-O3',
         '-fpermissive',
-        '-D_GLIBCXX_USE_NANOSLEEP',
+        '-flto',
         '-DBUILD_PYTHON_EXT=1',
-        '-Wno-write-strings',
-        '-Wno-maybe-uninitialized',
+        '-Wall',
     ])
 # yapf: enable
 
@@ -44,6 +43,5 @@ setup(
     description='PathPlanner for 3D printer',
     author='Mathieu Monney',
     author_email='zittix@xwaves.net',
-    url='http://www.xwaves.net',
     ext_modules=[pathplanner],
 )

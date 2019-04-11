@@ -1,11 +1,13 @@
-# Work in progres - ARC
-import unittest
+# Work in progress - ARC
 import mock    # use mock.Mock etc
-from USB import USB
+import pytest
+import unittest
 
 
 class TestUSB(unittest.TestCase):
+  @pytest.mark.skip
   def setUp(self):
+    from USB import USB
     testUSB = USB()
 
 

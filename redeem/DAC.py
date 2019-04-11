@@ -22,11 +22,10 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
-
-from PWM import PWM
-
+from __future__ import absolute_import
 import time
 import logging
+from .PWM import PWM
 
 # Load SPI module
 try:
@@ -58,10 +57,7 @@ class DAC():
     self.offset = 0.0
     if 'SPI' in globals():
       # init the SPI for the DAC
-      try:
-        self.spi2_0 = SPI(0, 0)
-      except IOError:
-        self.spi2_0 = SPI(1, 0)
+      self.spi2_0 = SPI(2, 0)
       self.spi2_0.bpw = 8
       self.spi2_0.mode = 1
     else:

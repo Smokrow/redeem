@@ -4,7 +4,6 @@ A servo is for switching some tools on/off. This one is for Replicape.
 
 Author: Mathieu Monney
 email: zittix(at)xwaves(dot)net
-Website: http://www.xwaves.net
 License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
 
  Redeem is free software: you can redistribute it and/or modify
@@ -20,18 +19,26 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
-from threading import Thread
-from builtins import range
-import time
-import math
-import Queue
-from multiprocessing import JoinableQueue
+from __future__ import absolute_import
+
 import logging
-from PWM_pin import PWM_pin
-from ShiftRegister import ShiftRegister
+import math
+import time
+from multiprocessing import JoinableQueue
+from six import PY2
+from threading import Thread
+from .PWM_pin import PWM_pin
+from .ShiftRegister import ShiftRegister
+if PY2:
+  import Queue as queue
+else:
+  import queue
 
 
 class Servo:
+  if PY2:
+    range = xrange
+
   def __init__(self,
                channel,
                pulse_width_min,
@@ -51,10 +58,10 @@ class Servo:
 
     self.angle_min = angle_min
     self.angle_max = angle_max
-    self.angle_total = angle_max - angle_min
+    self.angle_range = angle_max - angle_min
     self.pulse_width_min = pulse_width_min
     self.pulse_width_max = pulse_width_max
-    self.pulse_width_total = pulse_width_max - pulse_width_min
+    self.pulse_width_range = pulse_width_max - pulse_width_min
 
     self.turnoff_timeout = turnoff_timeout
 
@@ -67,10 +74,10 @@ class Servo:
 
     logging.debug("Angle min: {} deg".format(self.angle_min))
     logging.debug("Angle max: {} deg".format(self.angle_max))
-    logging.debug("Angle tot: {} deg".format(self.angle_total))
+    logging.debug("Angle tot: {} deg".format(self.angle_range))
     logging.debug("Pulse min: {} ms".format(self.pulse_width_min * 1000.0))
     logging.debug("Pulse max: {} ms".format(self.pulse_width_max * 1000.0))
-    logging.debug("Pulse tot: {} ms".format(self.pulse_width_total * 1000.0))
+    logging.debug("Pulse tot: {} ms".format(self.pulse_width_range * 1000.0))
 
     self.queue = JoinableQueue(1000)
     self.lastCommandTime = 0
@@ -120,11 +127,14 @@ class Servo:
     t = (math.fabs(angle - last_angle) / speed) / math.fabs(angle - last_angle)
 
     if angle >= last_angle:
-      for a in range(int(last_angle), int(angle + 1), 1):
-        self.queue.put((self.angle_to_pulse_width(a), t))
+      increment = 1
     else:
-      for a in range(int(last_angle), int(angle - 1), -1):
-        self.queue.put((self.angle_to_pulse_width(a), t))
+      increment = -1
+
+    for a in range(int(last_angle + increment), int(angle), increment):
+      self.queue.put((self.angle_to_pulse_width(a), t))
+
+    self.queue.put((self.angle_to_pulse_width(angle), t))
 
     self.last_pulse_width = pulse_width
     self.last_angle = angle
@@ -144,7 +154,7 @@ class Servo:
     while self.running:
       try:
         ev = self.queue.get(block=True, timeout=1)
-      except Queue.Empty:
+      except queue.Empty:
         if self.turnoff_timeout > 0 and self.lastCommandTime > 0 and time.time(
         ) - self.lastCommandTime > self.turnoff_timeout:
           self.lastCommandTime = 0
@@ -164,11 +174,11 @@ class Servo:
 
   def angle_to_pulse_width(self, angle):
     return (
-        (angle - self.angle_min) / self.angle_total) * self.pulse_width_total + self.pulse_width_min
+        (angle - self.angle_min) / self.angle_range) * self.pulse_width_range + self.pulse_width_min
 
   def pulse_width_to_angle(self, pulse_width):
     return (((pulse_width - self.pulse_width_min) /
-             (self.pulse_width_total)) * self.angle_total) + self.angle_min
+             (self.pulse_width_range)) * self.angle_range) + self.angle_min
 
 
 if __name__ == '__main__':

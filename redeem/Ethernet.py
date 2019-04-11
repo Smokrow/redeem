@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Ethernet communication file for Replicape.
 
@@ -20,11 +19,12 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
 
-from threading import Thread
-import socket
 import logging
-from Gcode import Gcode
+import socket
+from threading import Thread
+from .Gcode import Gcode
 
 size = 1024
 
@@ -78,8 +78,8 @@ class Ethernet:
     try:
       if self.client:
         self.client.send(message)
-    except socket.error as (value, message):
-      logging.error("Ethernet " + message)
+    except socket.error as e:
+      logging.error("Ethernet " + e.strerror)
 
   def read_line(self):
     """read a line from a socket"""
@@ -87,8 +87,8 @@ class Ethernet:
     while self.running:
       try:
         char = self.client.recv(1)
-      except socket.error as (value, message):
-        logging.error("Ethernet " + message)
+      except socket.error as e:
+        logging.error("Ethernet " + e.strerror)
         char = ""
       if char == "":
         logging.warning("Ethernet: Connection reset by peer.")

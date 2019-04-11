@@ -4,7 +4,6 @@ Disable all steppers
 
 Author: Mathieu Monney
 email: zittix(at)xwaves(dot)net
-Website: http://www.xwaves.net
 License: CC BY-SA: http://creativecommons.org/licenses/by-sa/2.0/
 """
 from __future__ import absolute_import
@@ -19,7 +18,7 @@ class M84(GCodeCommand):
     self.printer.path_planner.wait_until_done()
     # If no token is present, disable all steppers
     if g.num_tokens() == 0:
-      g.set_tokens(self.printer.steppers.keys())
+      g.set_tokens(list(self.printer.steppers.keys()))
 
     for i in range(g.num_tokens()):    # Run through all tokens
       axis = g.token_letter(i)    # Get the axis, X, Y, Z or E

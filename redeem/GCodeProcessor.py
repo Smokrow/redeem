@@ -4,7 +4,6 @@ GCode processor processing GCode commands with a plugin system
 
 Author: Mathieu Monney
 email: zittix(at)xwaves(dot)net
-Website: http://www.xwaves.net
 License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
 
  Redeem is free software: you can redistribute it and/or modify
@@ -20,33 +19,39 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
 
-import sys
-import traceback
+import importlib
 import inspect
 import logging
 import re
-import importlib
-from threading import Event
+import sys
+import traceback
 from six import iteritems
-from gcodes import GCodeCommand
-import Sync
-try:
-  from Gcode import Gcode
-except ImportError:
-  from redeem.Gcode import Gcode
+from threading import Event
+from . import Sync
+from .Gcode import Gcode
+from .gcodes.GCodeCommand import GCodeCommand
+from .PathPlanner import SyncCallback
+
+
+class GCodePerformanceCounters:
+  def __init__(self):
+    self.gcodes_executed = 0
+    self.start_time = 0
 
 
 class GCodeProcessor:
   def __init__(self, printer):
     self.printer = printer
+    self.counters = GCodePerformanceCounters()
     self.sync_event_needed = False
     self.gcodes = {}
-    try:
-      module = __import__("gcodes", locals(), globals())
-    except ImportError:
-      module = importlib.import_module("redeem.gcodes")
+    module = importlib.import_module("redeem.gcodes")
     self.load_classes_in_module(module)
+
+    if len(self.gcodes) is 0:
+      logging.error("No gcodes loaded")
 
   def load_classes_in_module(self, module):
     for module_name, obj in inspect.getmembers(module):
@@ -56,7 +61,7 @@ class GCodeProcessor:
         self.load_classes_in_module(obj)
       elif inspect.isclass(obj) and \
               not inspect.isabstract(obj) and \
-              issubclass(obj, GCodeCommand.GCodeCommand) and \
+              issubclass(obj, GCodeCommand) and \
               module_name != 'GCodeCommand' and \
               module_name != 'ToolChange':
         logging.debug("Loading GCode handler " + module_name + "...")
@@ -64,9 +69,9 @@ class GCodeProcessor:
 
   def override_command(self, gcode, gcodeClassInstance):
     """
-        This methods allow a plugin to replace a GCode command
-        with its own provided class.
-        """
+    This methods allow a plugin to replace a GCode command
+    with its own provided class.
+    """
     self.gcodes[gcode] = gcodeClassInstance
 
   def get_supported_commands(self):
@@ -84,7 +89,7 @@ class GCodeProcessor:
   def resolve(self, gcode):
     if hasattr(gcode, 'command'):
       logging.warning("tried to resolve a gcode that's already resolved: " + gcode.message)
-      logging.error(traceback.format_stack())
+      # logging.error(traceback.format_stack())
     else:
       c = gcode.code() if not gcode.is_info_command() else gcode.code()[:-1]
       if not c in self.gcodes:
@@ -108,6 +113,9 @@ class GCodeProcessor:
       self.resolve(gcode)
     if gcode.command is None:
       return
+
+    self.counters.gcodes_executed += 1
+
     try:
       gcode.command.execute(gcode)
     except Exception as e:
@@ -118,13 +126,18 @@ class GCodeProcessor:
   def enqueue(self, gcode):
     self.resolve(gcode)
     if gcode.command is None:
+      logging.warning("tried to enqueue an unknown gcode: " + gcode.code())
+      gcode.set_answer("ok Unknown GCode: " + gcode.code())
+      self.printer.reply(gcode)
       return
+
     # If an M116 is running, peek at the incoming Gcode
     if self.peek(gcode):
       return
     if gcode.command.is_async():
       self.sync_event_needed = True
-      self.printer.async_commands.put(gcode)
+      self.execute(gcode)
+      self.printer.reply(gcode)
     elif gcode.command.is_buffered():
       # if we previously queued an async code, we need to queue an event to get back into sync
       if self.sync_event_needed:
@@ -132,18 +145,17 @@ class GCodeProcessor:
         self._make_buffered_queue_wait_for_async_queue()
         self.sync_event_needed = False
       self.printer.commands.put(gcode)
-      if gcode.command.is_sync():
-        # Yes, it goes into both queues!
-        self.printer.sync_commands.put(gcode)
     else:
       self.printer.unbuffered_commands.put(gcode)
     if gcode.code() in ["M109", "M190"]:
       self._make_async_queue_wait_for_buffered_queue()
 
   def peek(self, gcode):
-    if self.printer.running_M116 and gcode.code() == "M108":
+    if self.printer.running_M116 and gcode.code() in ["M108", "M104", "M140"]:
       self.execute(gcode)
       return True
+    elif gcode.code() == "M1500":
+      gcode.command.execute_custom(gcode, self.counters)
     return False
 
   def get_long_description(self, gcode):
@@ -166,34 +178,30 @@ class GCodeProcessor:
 
   def _make_buffered_queue_wait_for_async_queue(self):
     logging.info("queueing buffered-to-async sync event")
-    state = Sync.SyncState()
-    buffered = Sync.SyncBufferedToAsync_Buffered(self.printer, state)
-    async = Sync.SyncBufferedToAsync_Async(self.printer, state)
+    event = Event()
+    callback = SyncCallback(event)
 
+    self.printer.path_planner.native_planner.queueSyncEvent(callback, False)
+
+    buffered = Sync.BufferedWaitEvent(self.printer, event)
     buffered_gcode = Gcode({"message": "SyncBufferedToAsync_Buffered", "prot": "internal"})
     buffered_gcode.command = buffered
 
-    async_gcode = Gcode({"message": "SyncBufferedToAsync_Async", "prot": "internal"})
-    async_gcode.command = async
+    # buffered doesn't actually use this, but we need it to stay alive per the garbage collector
+    buffered.native_callback = callback
 
     self.printer.commands.put(buffered_gcode)
-    self.printer.sync_commands.put(async_gcode)
-    self.printer.async_commands.put(async_gcode)
     logging.info("done queueing buffered-to-async sync event")
 
   def _make_async_queue_wait_for_buffered_queue(self):
     logging.info("queueing async-to-buffered sync event")
-    state = Sync.SyncState()
-    buffered = Sync.SyncAsyncToBuffered_Buffered(self.printer, state)
-    async = Sync.SyncAsyncToBuffered_Async(self.printer, state)
 
+    wait_event = self.printer.path_planner.native_planner.queueWaitEvent()
+
+    buffered = Sync.BufferedSyncEvent(self.printer, wait_event)
     buffered_gcode = Gcode({"message": "SyncAsyncToBuffered_Buffered", "prot": "internal"})
     buffered_gcode.command = buffered
 
-    async_gcode = Gcode({"message": "SyncAsyncToBuffered_Async", "prot": "internal"})
-    async_gcode.command = async
-
-    self.printer.async_commands.put(async_gcode)
     self.printer.commands.put(buffered_gcode)
     logging.info("done queueing async-to-buffered sync event")
 

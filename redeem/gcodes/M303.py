@@ -1,17 +1,18 @@
+# -*- coding: utf-8 -*-
 """
 GCode M303
-Run PID tuning 
+Run PID tuning
 
 Author: Elias Bakken
 email: elias.bakken(at)gmail(dot)com
 Website: http://www.thing-printer.com
 License: CC BY-SA: http://creativecommons.org/licenses/by-sa/2.0/
 
-PID Tuning refers to a control algorithm used in some repraps to 
-tune heating behavior for hot ends and heated beds. 
-This command generates Proportional (Kp), 
-Integral (Ki), and Derivative (Kd) values for the hotend or bed (E-1). 
-Send the appropriate code and wait for the output to update the firmware. 
+PID Tuning refers to a control algorithm used in some repraps to
+tune heating behavior for hot ends and heated beds.
+This command generates Proportional (Kp),
+Integral (Ki), and Derivative (Kd) values for the hotend or bed (E-1).
+Send the appropriate code and wait for the output to update the firmware.
 
 """
 from __future__ import absolute_import
@@ -46,8 +47,9 @@ class M303(GCodeCommand):
     logging.info("Max temp: {}, Min temp: {}, Ku: {}, Pu: {}".format(tuner.max_temp, tuner.min_temp,
                                                                      tuner.Ku, tuner.Pu))
     logging.info("Kp: {}, Ti: {}, Td: {}".format(heater.Kp, heater.Ti, heater.Td))
-    self.printer.send_message(g.prot, "Max temp: {}, Min temp: {}, Ku: {}, Pu: {}".format(
-        tuner.max_temp, tuner.min_temp, tuner.Ku, tuner.Pu))
+    self.printer.send_message(
+        g.prot, "Max temp: {}, Min temp: {}, Ku: {}, Pu: {}".format(tuner.max_temp, tuner.min_temp,
+                                                                    tuner.Ku, tuner.Pu))
     self.printer.send_message(g.prot, "Kp: {}, Ti: {}, Td: {}".format(heater.Kp, heater.Ti,
                                                                       heater.Td))
     self.printer.send_message(g.prot, "Settings by G-code: \n")
@@ -62,7 +64,7 @@ class M303(GCodeCommand):
     tune_data = {
         "tune_data": tuner.plot_temps,
         "tune_gcode": g.message,
-        "replicape_key": self.printer.replicape_key
+        "replicape_key": self.printer.config.replicape_key
     }
 
     Alarm.action_command("pid_tune_data", json.dumps(tune_data))
@@ -79,7 +81,7 @@ class M303(GCodeCommand):
             "for hot ends and heated beds. This command "
             "generates Proportional (Kp), Integral (Ki), "
             "and Derivative (Kd) values for the hotend or "
-            "bed (E-1). Send the appropriate code and wait "
+            "bed. Send the appropriate code and wait "
             "for the output to update the firmware. "
             "\nInputs:\n"
             "H<0 or 1> overrides the extruder. Use H-1 for heated bed. \n"

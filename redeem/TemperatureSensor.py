@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 A temperature sensor class for Replicape.
 This represents NTC and PTC sensors like thermistors, thermocouples
@@ -27,14 +26,15 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
 
-import numpy as np
-import math
 import logging
-from threading import Lock
+import math
+import numpy as np
 import sys
-import TemperatureSensorConfigs
-from Alarm import Alarm
+from threading import Lock
+from . import TemperatureSensorConfigs
+from .Alarm import Alarm
 
 
 class TemperatureSensor:
@@ -80,8 +80,8 @@ class TemperatureSensor:
       self.sensor = None
 
   """
-    Returns the current temperature in degrees celsius for the given sensor.
-    """
+  Returns the current temperature in degrees celsius for the given sensor.
+  """
 
   def get_temperature(self):
     voltage = self.read_adc()
@@ -90,9 +90,9 @@ class TemperatureSensor:
     return self.sensor.get_temperature(voltage)
 
   """
-    Reads the adc pin and returns the actual voltage value
-    Returns -1 if the reading is out of range.
-    """
+  Reads the adc pin and returns the actual voltage value
+  Returns -1 if the reading is out of range.
+  """
 
   def read_adc(self):
     voltage = 0
@@ -136,9 +136,9 @@ class Thermistor(TemperatureSensor):
       self.c2 = sensorConfiguration[3]    #Steinhart-Hart coefficient
       self.c3 = sensorConfiguration[4]    #Steinhart-Hart coefficient
       logging.debug(
-          "Initialized temperature sensor at {0} (type: {1}). Pullup value = {2} Ohm. Steinhart-Hart coefficients: c1 = {3}, c2 = {4}, c3 = {5}.".
-          format(pin, sensorConfiguration[0], sensorConfiguration[1], sensorConfiguration[2],
-                 sensorConfiguration[3], sensorConfiguration[4]))
+          "Initialized temperature sensor at {0} (type: {1}). Pullup value = {2} Ohm. Steinhart-Hart coefficients: c1 = {3}, c2 = {4}, c3 = {5}."
+          .format(pin, sensorConfiguration[0], sensorConfiguration[1], sensorConfiguration[2],
+                  sensorConfiguration[3], sensorConfiguration[4]))
 
   def get_temperature(self, voltage):
     """ Return the temperature in degrees celsius. Uses Steinhart-Hart """
@@ -152,8 +152,8 @@ class Thermistor(TemperatureSensor):
     else:
       t = -273.15
       logging.debug(
-          "Reading sensor {0} on {1}, but it seems to be out of bounds. R is {2}. Setting temp to {3}.".
-          format(self.sensorIdentifier, self.pin, r, t))
+          "Reading sensor {0} on {1}, but it seems to be out of bounds. R is {2}. Setting temp to {3}."
+          .format(self.sensorIdentifier, self.pin, r, t))
     return max(t, 0.0)    # Cap it at 0
 
   def voltage_to_resistance(self, voltage):
@@ -177,9 +177,10 @@ class PT100(TemperatureSensor):
       logging.error(
           "PT100 Sensor configuration for {0} is missing parameters. Expected: 5, received: {1}.".
           format(pin, len(sensorConfiguration)))
-      Alarm(Alarm.THERMISTOR_ERROR,
-            "PT100 Sensor configuration for {0} is missing parameters. Expected: 5, received: {1}.".
-            format(pin, len(sensorConfiguration)))
+      Alarm(
+          Alarm.THERMISTOR_ERROR,
+          "PT100 Sensor configuration for {0} is missing parameters. Expected: 5, received: {1}.".
+          format(pin, len(sensorConfiguration)))
     else:
       self.pin = pin
       self.name = name

@@ -4,7 +4,6 @@ Get current printer head position
 
 Author: Mathieu Monney
 email: zittix(at)xwaves(dot)net
-Website: http://www.xwaves.net
 License: CC BY-SA: http://creativecommons.org/licenses/by-sa/2.0/
 """
 from __future__ import absolute_import
@@ -29,7 +28,7 @@ class M114(GCodeCommand):
 
   def get_long_description(self):
     return ("Get current printer head position. "
-            "This is the ideal positition, without bed compensation. "
+            "This is the ideal position, without bed compensation. "
             "The returned value is in millimeters.\n"
             "M = Return the position seen with the bed matrix enabled ")
 

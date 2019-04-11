@@ -5,7 +5,6 @@ for printers
 
 Author: Mathieu Monney
 email: zittix(at)xwaves(dot)net
-Website: http://www.xwaves.net
 License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
 
  Redeem is free software: you can redistribute it and/or modify
@@ -22,11 +21,11 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import importlib
 import inspect
 import logging
 import re
-import importlib
-from plugins import AbstractPlugin
+from .plugins import AbstractPlugin
 
 
 class PluginsController:
@@ -36,7 +35,7 @@ class PluginsController:
     self.plugins = {}
 
     # Load the plugins specified by the config
-    pluginsToLoad = [v.strip() for v in self.printer.config.get('System', 'plugins', '').split(',')]
+    pluginsToLoad = [v.strip() for v in self.printer.config.get('System', 'plugins').split(',')]
     pluginClasses = PluginsController.get_plugin_classes()
 
     for plugin in pluginsToLoad:

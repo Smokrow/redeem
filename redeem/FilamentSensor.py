@@ -22,11 +22,12 @@ Author: Elias Bakken
  You should have received a copy of the GNU General Public License
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
-from Alarm import Alarm
+from __future__ import absolute_import
 
-from threading import Thread
-import time
 import logging
+import time
+from threading import Thread
+from .Alarm import Alarm
 
 
 class FilamentSensor:
@@ -48,10 +49,9 @@ class FilamentSensor:
     self.t.start()
 
   def execute_alarm(self):
-    a = Alarm(Alarm.FILAMENT_JAM,
-              "Filament deviation above limit ({0:.2f} mm) for extruder {1} ".format(
-                  self.error_pos * 1000, self.ext_nr), "Filament jam on ext. {}".format(
-                      self.ext_nr))
+    a = Alarm(
+        Alarm.FILAMENT_JAM, "Filament deviation above limit ({0:.2f} mm) for extruder {1} ".format(
+            self.error_pos * 1000, self.ext_nr), "Filament jam on ext. {}".format(self.ext_nr))
     logging.warning("Extruder {0} has reported too large deviation: {1:.2f} mm".format(
         self.ext_nr, self.error_pos * 1000))
 

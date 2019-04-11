@@ -4,7 +4,6 @@ Set heated bed temperature and wait for it to be reached
 
 Author: Mathieu Monney
 email: zittix(at)xwaves(dot)net
-Website: http://www.xwaves.net
 License: CC BY-SA: http://creativecommons.org/licenses/by-sa/2.0/
 """
 from __future__ import absolute_import
@@ -17,10 +16,12 @@ class M190(GCodeCommand):
   def execute(self, g):
     temperature = g.get_float_by_letter("S")
     self.printer.heaters['HBP'].set_target_temperature(temperature)
-    self.printer.processor.execute(Gcode({
+    G = Gcode({
         "message": "M116 P-1",    # P-1 = HBP
         "parent": g
-    }))
+    })
+    self.printer.processor.resolve(G)
+    self.printer.processor.execute(G)
 
   def get_description(self):
     return "Set heated bed temperature and wait for it to be reached"

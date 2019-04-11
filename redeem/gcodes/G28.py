@@ -4,11 +4,11 @@ Steppers homing
 
 Author: Mathieu Monney
 email: zittix(at)xwaves(dot)net
-Website: http://www.xwaves.net
 License: CC BY-SA: http://creativecommons.org/licenses/by-sa/2.0/
 """
+from __future__ import absolute_import
 
-from GCodeCommand import GCodeCommand
+from .GCodeCommand import GCodeCommand
 import logging
 try:
   from Path import G92Path
@@ -42,7 +42,7 @@ class G28(GCodeCommand):
 
     logging.info("Homing done.")
     self.printer.send_message(g.prot, "Homing done.")
-    self.printer.send_message(g.prot, "ok")
+    # self.printer.send_message(g.prot, "ok")
 
   def get_description(self):
     return "Move the steppers to their homing position" \

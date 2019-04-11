@@ -24,29 +24,28 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from __future__ import absolute_import
+
 import logging
-from Path import Path, AbsolutePath, RelativePath, G92Path
-from Delta import Delta
-from Printer import Printer
 import numpy as np
-from PruInterface import PruInterface
-from BedCompensation import BedCompensation
-from DeltaAutoCalibration import delta_auto_calibration
-from Alarm import Alarm
-from six import iteritems
 import traceback
+from six import iteritems
+from .Alarm import Alarm
+from .BedCompensation import BedCompensation
+from .Delta import Delta
+from .DeltaAutoCalibration import delta_auto_calibration
+from .Path import Path, AbsolutePath, RelativePath, G92Path
+from .Printer import Printer
+from .PruInterface import PruInterface
 
 try:
-  from path_planner.PathPlannerNative import PathPlannerNative, AlarmCallbackNative
+  from redeem.path_planner.PathPlannerNative import PathPlannerNative, AlarmCallbackNative, SyncCallbackNative
 except Exception as e:
-  try:
-    from _PathPlannerNative import PathPlannerNative, AlarmCallbackNative
-  except:
-    logging.error("You have to compile the native path planner before running"
-                  " Redeem. Make sure you have swig installed (apt-get "
-                  "install swig) and run cd ../../PathPlanner/PathPlanner && "
-                  "python setup.py install")
-    raise e
+  logging.error("You have to compile the native path planner before running"
+                " Redeem. Make sure you have swig installed (apt-get "
+                "install swig) and run cd ../../PathPlanner/PathPlanner && "
+                "python setup.py install")
+  raise e
 
 
 class AlarmWrapper(AlarmCallbackNative):
@@ -67,6 +66,15 @@ class AlarmWrapper(AlarmCallbackNative):
       a = Alarm(int(type), message, short_message)
     except Exception:
       logging.error(traceback.format_exc())
+
+
+class SyncCallback(SyncCallbackNative):
+  def __init__(self, event):
+    SyncCallbackNative.__init__(self)
+    self.event = event
+
+  def syncComplete(self):
+    self.event.set()
 
 
 class PathPlanner:
@@ -128,12 +136,12 @@ class PathPlanner:
 
     self.native_planner.initPRU(fw0, fw1)
 
-    self.native_planner.setAxisStepsPerMeter(tuple(self.printer.steps_pr_meter))
+    self.native_planner.setAxisStepsPerMeter(tuple(self.printer.get_steps_pr_meter()))
     self.native_planner.setMaxSpeeds(tuple(self.printer.max_speeds))
     self.native_planner.setAcceleration(tuple(self.printer.acceleration))
     self.native_planner.setMaxSpeedJumps(tuple(self.printer.max_speed_jumps))
-    self.native_planner.setPrintMoveBufferWait(int(self.printer.print_move_buffer_wait))
-    self.native_planner.setMaxBufferedMoveTime(int(self.printer.max_buffered_move_time))
+    #    self.native_planner.setPrintMoveBufferWait(int(self.printer.print_move_buffer_wait))
+    #    self.native_planner.setMaxBufferedMoveTime(int(self.printer.max_buffered_move_time))
     self.native_planner.setSoftEndstopsMin(tuple(self.printer.soft_min))
     self.native_planner.setSoftEndstopsMax(tuple(self.printer.soft_max))
     self.native_planner.setSoftEndstopsMax(tuple(self.printer.soft_max))
@@ -165,7 +173,7 @@ class PathPlanner:
 
   def update_steps_pr_meter(self):
     """ Update steps pr meter from the path """
-    self.native_planner.setAxisStepsPerMeter(tuple(self.printer.steps_pr_meter))
+    self.native_planner.setAxisStepsPerMeter(tuple(self.printer.get_steps_pr_meter()))
 
   def update_backlash(self):
     """ Update steps pr meter from the path """
@@ -259,8 +267,8 @@ class PathPlanner:
         path_search[a] = -self.travel_length[a]
         path_center[a] = -self.center_offset[a]
 
-      backoff_length = -np.sign(path_search[a]) * self.printer.home_backoff_offset[
-          Printer.axis_to_index(a)]
+      backoff_length = -np.sign(
+          path_search[a]) * self.printer.home_backoff_offset[Printer.axis_to_index(a)]
       path_backoff[a] = backoff_length
       path_fine_search[a] = -backoff_length * 1.2
 
@@ -411,8 +419,8 @@ class PathPlanner:
     start_state = self.native_planner.getState()
 
     # calculate how many steps the requested z movement will require
-    steps = np.ceil(z * self.printer.steps_pr_meter[2])
-    z_dist = steps / self.printer.steps_pr_meter[2]
+    steps = np.ceil(z * self.printer.get_steps_pr_meter()[2])
+    z_dist = steps / self.printer.get_steps_pr_meter()[2]
     logging.debug("Steps total: " + str(steps))
 
     # select the relative end point
@@ -531,10 +539,6 @@ class PathPlanner:
         """
     if ext_nr in range(Printer.MAX_AXES - 3):
       logging.debug("Selecting " + str(ext_nr))
-      #Printer.steps_pr_meter[3] = self.printer.steppers[
-      #        Printer.index_to_axis(ext_nr+3)
-      #        ].get_steps_pr_meter()
-      #self.native_planner.setExtruder(ext_nr)
 
 
 """

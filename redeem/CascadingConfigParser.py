@@ -18,16 +18,20 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import ConfigParser
-import os
 import logging
+import os
+from six import PY2
 import struct
+if PY2:
+  from ConfigParser import SafeConfigParser as Parser
+else:
+  from configparser import ConfigParser as Parser
 
 
-class CascadingConfigParser(ConfigParser.SafeConfigParser):
+class CascadingConfigParser(Parser):
   def __init__(self, config_files):
 
-    ConfigParser.SafeConfigParser.__init__(self)
+    Parser.__init__(self)
 
     # Write options in the case it was read.
     # self.optionxform = str
@@ -42,7 +46,10 @@ class CascadingConfigParser(ConfigParser.SafeConfigParser):
     for config_file in self.config_files:
       if os.path.isfile(config_file):
         logging.info("Using config file " + config_file)
-        self.readfp(open(config_file))
+        if PY2:
+          self.readfp(open(config_file))
+        else:
+          self.read_file(open(config_file))
       else:
         logging.warning("Missing config file " + config_file)
         # Might also add command line options for overriding stuff
@@ -73,11 +80,11 @@ class CascadingConfigParser(ConfigParser.SafeConfigParser):
         with open(path, "rb") as f:
           data = f.read(120)
           name = data[58:74].strip()
-          if name == "BB-BONE-REPLICAP":
+          if name == b"BB-BONE-REPLICAP":
             self.replicape_revision = data[38:42]
             self.replicape_data = data
             self.replicape_path = path
-          elif name[:13] == "BB-BONE-REACH":
+          elif name[:13] == b"BB-BONE-REACH":
             self.reach_revision = data[38:42]
             self.reach_data = data
             self.reach_path = path
@@ -85,15 +92,19 @@ class CascadingConfigParser(ConfigParser.SafeConfigParser):
             break
       except IOError as e:
         pass
-    return
+    # Parameters from the hardware
+    self.setup_key()
 
   def get_default_settings(self):
     fs = []
     for config_file in self.config_files:
       if os.path.isfile(config_file):
         c_file = os.path.basename(config_file)
-        cp = ConfigParser.SafeConfigParser()
-        cp.readfp(open(config_file))
+        cp = Parser()
+        if PY2:
+          cp.readfp(open(config_file))
+        else:
+          cp.read_file(open(config_file))
         fs.append((c_file, cp))
 
     lines = []
@@ -110,7 +121,7 @@ class CascadingConfigParser(ConfigParser.SafeConfigParser):
     """ Save the changed settings to local.cfg """
     current = CascadingConfigParser(self.config_files)
 
-    # Get list of changed values
+    # Build a list of changed values
     to_save = []
     for section in self.sections():
       #logging.debug(section)
@@ -121,8 +132,14 @@ class CascadingConfigParser(ConfigParser.SafeConfigParser):
           to_save.append((section, option, val, old))
 
     # Update local config with changed values
-    local = ConfigParser.SafeConfigParser()
-    local.readfp(open(filename, "r"))
+    local = Parser()
+    # Start each file with revision identification
+    local.add_section("Configuration")
+    local.set("Configuration", "version", "1")
+    if PY2:
+      local.readfp(open(filename))
+    else:
+      local.read_file(open(filename))
     for opt in to_save:
       (section, option, value, old) = opt
       if not local.has_section(section):
@@ -135,10 +152,17 @@ class CascadingConfigParser(ConfigParser.SafeConfigParser):
 
   def check(self, filename):
     """ Check the settings currently set against default.cfg """
-    default = ConfigParser.SafeConfigParser()
-    default.readfp(open(os.path.join(self.config_location, "default.cfg")))
-    local = ConfigParser.SafeConfigParser()
-    local.readfp(open(filename))
+    default = Parser()
+    if PY2:
+      default.readfp(open(os.path.join(self.config_location, "default.cfg")))
+    else:
+      default.read_file(open(os.path.join(self.config_location, "default.cfg")))
+    local = Parser()
+
+    if PY2:
+      local.readfp(open(filename))
+    else:
+      local.read_file(open(filename))
 
     local_ok = True
     diff = set(local.sections()) - set(default.sections())
@@ -159,7 +183,7 @@ class CascadingConfigParser(ConfigParser.SafeConfigParser):
       logging.warning("{} contains errors.".format(filename))
     return local_ok
 
-  def get_key(self):
+  def setup_key(self):
     """ Get the generated key from the config or create one """
     self.replicape_key = "".join(struct.unpack('20c', self.replicape_data[100:120]))
     logging.debug("Found Replicape key: '" + self.replicape_key + "'")
@@ -177,7 +201,6 @@ class CascadingConfigParser(ConfigParser.SafeConfigParser):
           f.write(self.replicape_data[:120])
       except IOError as e:
         logging.warning("Unable to write new key to EEPROM")
-    return self.replicape_key
 
 
 if __name__ == '__main__':

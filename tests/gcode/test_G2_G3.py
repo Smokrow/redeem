@@ -1,11 +1,11 @@
 from __future__ import absolute_import
 
-import os
-import logging
 import itertools
+import logging
 import numpy as np
+import os
 from mock import Mock
-
+from six.moves import zip
 from .MockPrinter import MockPrinter
 
 show_plots = False
@@ -277,7 +277,7 @@ class G2G3ExtrusionTests(MockPrinter):
     """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
     a, b = itertools.tee(iterable)
     next(b, None)
-    return itertools.izip(a, b)
+    return zip(a, b)
 
   def _test_linear_dimensions(self, gcodes, dim, start, end):
 

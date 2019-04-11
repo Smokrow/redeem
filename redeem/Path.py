@@ -21,9 +21,9 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import logging
 import numpy as np
 import sympy as sp
-import logging
 
 
 class Path:
@@ -219,9 +219,10 @@ class Path:
     for key in start_linears.keys():
       linear_dims[key] = np.linspace(start_linears[key], end_linears[key], num_segments)
 
-    zipped_dim_dicts = zip(*[[{
-        key: value
-    } for value in values] for key, values in linear_dims.items()])
+    zipped_dim_dicts = list(
+        zip(*[[{
+            key: value
+        } for value in values] for key, values in linear_dims.items()]))
 
     path_segments = []
 

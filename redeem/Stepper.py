@@ -21,22 +21,20 @@ License: GNU GPL v3: http://www.gnu.org/copyleft/gpl.html
  along with Redeem.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import time
-import logging
-from Printer import Printer
-from DAC import DAC, PWM_DAC
-from ShiftRegister import ShiftRegister
 import Adafruit_BBIO.GPIO as GPIO
+import logging
+import time
 from threading import Thread
-from Alarm import Alarm
-from Key_pin import Key_pin
+from .Alarm import Alarm
+from .DAC import DAC, PWM_DAC
+from .Key_pin import Key_pin
+from .Printer import Printer
+from .ShiftRegister import ShiftRegister
 
 
 class Stepper(object):
 
   printer = None
-
-  all_steppers = list()
 
   def __init__(self, step_pin, dir_pin, fault_key, dac_channel, shiftreg_nr, name):
     """ Init """
@@ -113,8 +111,8 @@ class Stepper(object):
     pass
 
   def fault_callback(self, key, event):
-    Alarm(Alarm.STEPPER_FAULT, "Stepper {}<br>Most likely the stepper is over heated.".format(
-        self.name))
+    Alarm(Alarm.STEPPER_FAULT,
+          "Stepper {}<br>Most likely the stepper is over heated.".format(self.name))
 
 
 """
@@ -138,7 +136,11 @@ class Stepper_00B1(Stepper):
     self.state = 0    # The initial state of shift register
 
   def set_microstepping(self, value, force_update=False):
-    """ Todo: Find an elegant way for this """
+    if not value in range(9):
+      logging.warning("Tried to set illegal microstepping value: {0} for stepper {1}".format(
+          value, self.name))
+      return
+
     EN_CFG1 = (1 << 7)
     DIS_CFG1 = (0 << 7)
     EN_CFG2 = (1 << 5)
@@ -179,9 +181,6 @@ class Stepper_00B1(Stepper):
     self.shift_reg.set_state(state, 0xF0)
     self.mmPrStep = 1.0 / (self.steps_pr_mm * self.microsteps)
 
-    # update the Printer class with new values
-    stepper_num = self.printer.axis_to_index(self.name)
-    self.printer.steps_pr_meter[stepper_num] = self.get_steps_pr_meter()
     logging.debug("Updated stepper " + self.name + " to microstepping " + str(value) + " = " +
                   str(self.microsteps))
     self.microstepping = value
@@ -192,8 +191,8 @@ class Stepper_00B1(Stepper):
 
     v_iref = 2.5 * (i_rms / 1.92)
     if (v_iref > 2.5):
-      logging.warning(
-          "Current ref for stepper " + self.name + " above limit (2.5 V). Setting to 2.5 V")
+      logging.warning("Current ref for stepper " + self.name +
+                      " above limit (2.5 V). Setting to 2.5 V")
       v_iref = 2.5
     logging.debug("Setting votage to " + str(v_iref) + " for " + self.name)
     self.dac.set_voltage(v_iref)
@@ -432,9 +431,6 @@ class Stepper_00A4(Stepper):
     #self.state = int("0b"+bin(self.state)[2:].rjust(8, '0')[:4]+bin(value)[2:].rjust(3, '0')+bin(self.state)[-1:], 2)
     self.mmPrStep = 1.0 / (self.steps_pr_mm * self.microsteps)
 
-    # update the Printer class with new values
-    stepper_num = self.printer.axis_to_index(self.name)
-    self.printer.steps_pr_meter[stepper_num] = self.get_steps_pr_meter()
     logging.debug("Updated stepper " + self.name + " to microstepping " + str(value) + " = " +
                   str(self.microsteps))
     self.update()
